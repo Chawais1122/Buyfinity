@@ -21,8 +21,15 @@
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "cookie-parser": "^1.4.7",
+    "csrf-csrf": "^3.0.8",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
