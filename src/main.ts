@@ -1,12 +1,13 @@
 import helmet from 'helmet';
-import { doubleCsrf } from 'csrf-csrf';
-import { AppModule } from './app.module';
 import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
 import rateLimit from 'express-rate-limit';
+import * as session from 'express-session';
 import * as cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
+import { csrfMiddleware } from './auth/middleware/csrf.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -41,24 +42,23 @@ async function bootstrap() {
       message: 'Too many requests, please try again later.',
     },
   });
-
   app.use(limiter);
 
-  // CSRF Protection
-  const { doubleCsrfProtection } = doubleCsrf({
-    getSecret: () => configService.get<string>('CSRF_SECRET_KEY'),
-    getSessionIdentifier: (req) => '',
-    cookieName: 'buyfinity.x-csrf-token',
-    cookieOptions: {
-      secure: configService.get<string>('NODE_ENV') === 'production',
-      path: '/',
-    },
-    size: 64,
-    ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
-    getTokenFromRequest: (req) => req.headers['x-csrf-token'],
-  });
+  // Middleware for session management
+  app.use(
+    session({
+      secret: configService.get<string>('SESSION_SECRET'),
+      resave: false,
+      saveUninitialized: true,
+      cookie: {
+        secure: configService.get<string>('NODE_ENV') === 'production', // Secure cookie in production
+        maxAge: 1000 * 60 * 60 * 24, // 1 day
+      },
+    }),
+  );
 
-  app.use(doubleCsrfProtection);
+  // Enable global validation for CSRF using the guard approach
+  app.use(csrfMiddleware());
 
   // Using Helmet for security
   app.use(
