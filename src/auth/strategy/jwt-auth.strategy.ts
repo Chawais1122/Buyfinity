@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { AUTH_ERRORS } from 'src/common/errors';
+import { AUTH_MESSAGES } from 'src/common/errors';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from 'prisma/prisma.service';
@@ -30,14 +30,14 @@ export class JwtAuthStrategy extends PassportStrategy(
       });
 
       if (!user) {
-        throw new UnauthorizedException(AUTH_ERRORS.UNAUTHORIZED_USER);
+        throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED_USER);
       }
       return user;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_EXPIRED);
+        throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
       }
-      throw new UnauthorizedException(AUTH_ERRORS.UNAUTHORIZED_USER);
+      throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED_USER);
     }
   }
 }

@@ -20,6 +20,7 @@ model User {
   lastName  String
   address   Address?
   role      Role     @default(USER)
+  data      Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

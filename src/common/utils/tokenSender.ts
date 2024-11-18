@@ -8,7 +8,7 @@ export class TokenSender {
     private readonly jwtService: JwtService,
   ) {}
 
-  public sendUserToken(user: UserTokenPayload) {
+  public createAccessToken(user: UserTokenPayload) {
     try {
       const accessToken = this.jwtService.sign(
         {
@@ -23,6 +23,26 @@ export class TokenSender {
         },
       );
       return { ...user, accessToken };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  public async createRefreshToken(user: UserTokenPayload) {
+    try {
+      const refreshToken = this.jwtService.sign(
+        {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        },
+        {
+          secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+          expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRE_IN'),
+        },
+      );
+      return { refreshToken };
     } catch (error) {
       throw error;
     }

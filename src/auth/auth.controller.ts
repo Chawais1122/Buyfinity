@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { ActivateUserDto, LoginDto, SignUpDto } from './dto';
+import {
+  ActivateUserDto,
+  ForgotPasswordDto,
+  LoginDto,
+  ResetPasswordDto,
+  SignUpDto,
+} from './dto';
 import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 
 @Controller('auth')
@@ -20,5 +26,20 @@ export class AuthController {
   @Post('login')
   login(@Body() loginDto: LoginDto, @Req() req: Request, @Res() res: Response) {
     return this.authService.login(loginDto, req, res);
+  }
+
+  @Post('refresh-token')
+  refreshAccessToken(@Req() req: Request, @Res() res: Response) {
+    return this.authService.refreshAccessToken(req, res);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }

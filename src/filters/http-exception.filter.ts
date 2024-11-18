@@ -7,27 +7,28 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 
-@Catch(HttpException)
+@Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: HttpException, host: ArgumentsHost) {
+  catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const status = exception.getStatus
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    const details =
       status === HttpStatus.INTERNAL_SERVER_ERROR
-        ? 'Something went wrong'
-        : exception.getResponse
+        ? { message: 'An unexpected error occurred.' }
+        : exception instanceof HttpException
           ? exception.getResponse()
           : { message: 'An error occurred' };
 
     response.status(status).json({
-      statusCode: status,
       timestamp: new Date().toISOString(),
       path: ctx.getRequest().url,
-      message,
+      statusCode: status,
+      details,
     });
   }
 }

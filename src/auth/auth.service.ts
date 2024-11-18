@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcrypt';
 import * as csrf from 'csrf';
-import { ActivateUserDto, LoginDto, SignUpDto } from './dto';
+import { ActivateUserDto, LoginDto, ResetPasswordDto, SignUpDto } from './dto';
 import {
   JsonWebTokenError,
   JwtService,
@@ -8,7 +8,7 @@ import {
   TokenExpiredError,
 } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { AUTH_ERRORS, CSRF_ERRORS } from 'src/common/errors';
+import { AUTH_MESSAGES, CSRF_ERRORS } from 'src/common/errors';
 import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -16,6 +16,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { TokenSender } from 'src/common/utils/tokenSender';
@@ -42,7 +43,7 @@ export class AuthService {
       });
 
       if (user) {
-        throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_EXISTS);
+        throw new ConflictException(AUTH_MESSAGES.EMAIL_ALREADY_EXISTS);
       }
 
       const hashedPassword = await bcrypt.hash(
@@ -109,7 +110,7 @@ export class AuthService {
         };
 
       if (userPayload.activationCode !== activationCode) {
-        throw new BadRequestException(AUTH_ERRORS.INVALID_ACTIVATION_CODE);
+        throw new BadRequestException(AUTH_MESSAGES.INVALID_ACTIVATION_CODE);
       }
 
       const { firstName, lastName, email, password, address } =
@@ -122,7 +123,7 @@ export class AuthService {
       });
 
       if (user) {
-        throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_EXISTS);
+        throw new ConflictException(AUTH_MESSAGES.EMAIL_ALREADY_EXISTS);
       }
 
       const createdUser = await this.prisma.user.create({
@@ -144,9 +145,9 @@ export class AuthService {
       return createdUser;
     } catch (error) {
       if (error instanceof TokenExpiredError) {
-        throw new UnauthorizedException(AUTH_ERRORS.TOKEN_EXPIRED);
+        throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
       } else if (error instanceof JsonWebTokenError) {
-        throw new UnauthorizedException(AUTH_ERRORS.INVALID_TOKEN);
+        throw new UnauthorizedException(AUTH_MESSAGES.INVALID_TOKEN);
       }
       throw error;
     }
@@ -175,16 +176,29 @@ export class AuthService {
 
         this.setCsrfToken(req, res);
 
-        const response = tokenSender.sendUserToken({
+        const response = await tokenSender.createAccessToken({
           id: id.toString(),
           firstName,
           lastName,
           email,
         });
 
+        const { refreshToken } = await tokenSender.createRefreshToken({
+          id: id.toString(),
+          firstName,
+          lastName,
+          email,
+        });
+
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: this.config.get<string>('NODE_ENV') === 'production',
+          path: '/',
+        });
+
         return res.json(response);
       } else {
-        throw new ForbiddenException(AUTH_ERRORS.INVALID_CREDENTIALS);
+        throw new ForbiddenException(AUTH_MESSAGES.INVALID_CREDENTIALS);
       }
     } catch (error) {
       throw error;
@@ -210,6 +224,137 @@ export class AuthService {
 
       return { message: CSRF_ERRORS.TOKEN_SET };
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async refreshAccessToken(req: Request, res: Response) {
+    try {
+      const refreshToken = req.cookies['refreshToken'];
+      if (!refreshToken)
+        throw new UnauthorizedException(AUTH_MESSAGES.INVALID_TOKEN);
+
+      const user = await this.jwt.verify(refreshToken, {
+        secret: this.config.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+      });
+      const tokenSender = new TokenSender(this.config, this.jwt);
+      const accessToken = await tokenSender.createAccessToken(user);
+
+      return res.json(accessToken);
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
+      } else if (error instanceof JsonWebTokenError) {
+        throw new UnauthorizedException(AUTH_MESSAGES.INVALID_TOKEN);
+      }
+      throw error;
+    }
+  }
+
+  async forgotPassword(email: string) {
+    try {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        throw new NotFoundException(AUTH_MESSAGES.USER_NOT_FOUND);
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const resetToken = await this.jwt.signAsync(
+        { id: user.id.toString(), email },
+        {
+          secret: this.config.get<string>('JWT_RESET_PASSWORD_SECRET'),
+          expiresIn: this.config.get<string>('JWT_RESET_TOKEN_EXPIRE_IN'),
+        },
+      );
+
+      const hashedResetToken = await bcrypt.hash(
+        resetToken,
+        parseInt(this.config.get('SALT_ROUNDS')),
+      );
+
+      await this.prisma.user.update({
+        where: { email },
+        data: {
+          data: {
+            code,
+            resetPasswordToken: hashedResetToken,
+            resetPasswordExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes from now
+          },
+        },
+      });
+
+      const userPayload = {
+        email,
+        lastName: user.lastName,
+        firstName: user.firstName,
+        password: user.password,
+      };
+
+      await this.mailService.sendConfirmationEmail(
+        code,
+        'Password Reset Request',
+        userPayload,
+      );
+
+      return { resetToken, message: AUTH_MESSAGES.OTP_SENT };
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    try {
+      const { token, code, newPassword } = resetPasswordDto;
+
+      const payload = this.jwt.verify(token, {
+        secret: this.config.get<string>('JWT_RESET_PASSWORD_SECRET'),
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: { email: payload.email },
+      });
+
+      if (!user) {
+        throw new BadRequestException(AUTH_MESSAGES.INVALID_TOKEN);
+      }
+
+      const isTokenValid = await bcrypt.compare(
+        token,
+        (user.data as any).resetPasswordToken,
+      );
+
+      if (
+        !isTokenValid ||
+        (user.data as any).resetPasswordExpires < new Date()
+      ) {
+        throw new BadRequestException(AUTH_MESSAGES.TOKEN_EXPIRED);
+      }
+
+      if (code !== (user.data as any).code) {
+        throw new BadRequestException(AUTH_MESSAGES.INVALID_OTP_CODE);
+      }
+
+      const hashedPassword = await bcrypt.hash(
+        newPassword,
+        parseInt(this.config.get('SALT_ROUNDS')),
+      );
+
+      await this.prisma.user.update({
+        where: { email: user.email },
+        data: {
+          password: hashedPassword,
+        },
+      });
+
+      return { message: AUTH_MESSAGES.PASSWORD_RESET_SUCCESS };
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
+      } else if (error instanceof JsonWebTokenError) {
+        throw new BadRequestException(AUTH_MESSAGES.INVALID_TOKEN);
+      }
       throw error;
     }
   }

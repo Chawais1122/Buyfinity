@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AUTH_CONSTANTS } from 'src/common/constant';
-import { AUTH_ERRORS } from 'src/common/errors';
+import { AUTH_MESSAGES } from 'src/common/errors';
 
 class AddressDto {
   @IsNotEmpty()
@@ -39,7 +39,7 @@ export class SignUpDto {
   @IsNotEmpty()
   @IsString()
   @Matches(AUTH_CONSTANTS.PASSWORD_REGEX_PATTERN, {
-    message: AUTH_ERRORS.PASSWORD_INVALID_FORMAT,
+    message: AUTH_MESSAGES.PASSWORD_INVALID_FORMAT,
   })
   password: string;
 
