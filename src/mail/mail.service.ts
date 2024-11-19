@@ -1,5 +1,5 @@
 import { SignUpDto } from 'src/auth/dto';
-import { MAIL_ERRORS } from 'src/common/errors';
+import { MAIL_MESSAGES } from 'src/common/errors';
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 
@@ -27,7 +27,7 @@ export class MailService {
       });
     } catch (error) {
       console.error(error);
-      throw new InternalServerErrorException(MAIL_ERRORS.EMAIL_SEND_FAILED);
+      throw new InternalServerErrorException(MAIL_MESSAGES.EMAIL_SEND_FAILED);
     }
   }
 }

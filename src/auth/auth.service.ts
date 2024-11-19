@@ -8,7 +8,7 @@ import {
   TokenExpiredError,
 } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { AUTH_MESSAGES, CSRF_ERRORS } from 'src/common/errors';
+import { AUTH_MESSAGES, CSRF_MESSAGES } from 'src/common/errors';
 import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -70,6 +70,7 @@ export class AuthService {
 
       return { activationToken };
     } catch (error) {
+      console.log(error);
       throw error;
     }
   }
@@ -93,6 +94,7 @@ export class AuthService {
 
       return { activationToken, activationCode };
     } catch (error) {
+      console.log(error);
       throw error;
     }
   }
@@ -144,6 +146,7 @@ export class AuthService {
 
       return createdUser;
     } catch (error) {
+      console.log(error);
       if (error instanceof TokenExpiredError) {
         throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
       } else if (error instanceof JsonWebTokenError) {
@@ -172,7 +175,7 @@ export class AuthService {
 
       if (user && (await this.comparePassword(password, user.password))) {
         const tokenSender = new TokenSender(this.config, this.jwt);
-        const { id, firstName, lastName, email } = user;
+        const { id, firstName, lastName, email, role } = user;
 
         this.setCsrfToken(req, res);
 
@@ -181,6 +184,7 @@ export class AuthService {
           firstName,
           lastName,
           email,
+          role,
         });
 
         const { refreshToken } = await tokenSender.createRefreshToken({
@@ -188,6 +192,7 @@ export class AuthService {
           firstName,
           lastName,
           email,
+          role,
         });
 
         res.cookie('refreshToken', refreshToken, {
@@ -201,6 +206,7 @@ export class AuthService {
         throw new ForbiddenException(AUTH_MESSAGES.INVALID_CREDENTIALS);
       }
     } catch (error) {
+      console.log(error);
       throw error;
     }
   }
@@ -222,8 +228,9 @@ export class AuthService {
         path: '/',
       });
 
-      return { message: CSRF_ERRORS.TOKEN_SET };
+      return { message: CSRF_MESSAGES.TOKEN_SET };
     } catch (error) {
+      console.log(error);
       throw error;
     }
   }
@@ -242,6 +249,7 @@ export class AuthService {
 
       return res.json(accessToken);
     } catch (error) {
+      console.log(error);
       if (error instanceof TokenExpiredError) {
         throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
       } else if (error instanceof JsonWebTokenError) {
@@ -350,6 +358,7 @@ export class AuthService {
 
       return { message: AUTH_MESSAGES.PASSWORD_RESET_SUCCESS };
     } catch (error) {
+      console.log(error);
       if (error instanceof TokenExpiredError) {
         throw new UnauthorizedException(AUTH_MESSAGES.TOKEN_EXPIRED);
       } else if (error instanceof JsonWebTokenError) {

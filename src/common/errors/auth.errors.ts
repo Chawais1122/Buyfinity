@@ -11,4 +11,5 @@ export const AUTH_MESSAGES = {
   OTP_SENT: 'One-time password sent to your email.',
   INVALID_OTP_CODE: 'Invalid otp code.',
   PASSWORD_RESET_SUCCESS: 'Password has been successfully reset.',
+  PERMISSION_DENIED: 'You do not have the required permissions.',
 };
