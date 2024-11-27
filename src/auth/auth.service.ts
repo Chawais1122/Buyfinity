@@ -21,6 +21,7 @@ import {
 } from '@nestjs/common';
 import { TokenSender } from 'src/common/utils/tokenSender';
 import { Request, Response } from 'express';
+import { AllowedRoles } from 'src/common/constant';
 
 @Injectable()
 export class AuthService {
@@ -34,7 +35,7 @@ export class AuthService {
 
   async signUp(signupDto: SignUpDto) {
     try {
-      const { email, password, firstName, lastName, address } = signupDto;
+      const { email, password, firstName, lastName, address, role } = signupDto;
 
       const user = await this.prisma.user.findUnique({
         where: {
@@ -57,6 +58,7 @@ export class AuthService {
         lastName,
         firstName,
         password: hashedPassword,
+        role,
       };
 
       const { activationToken, activationCode } =
@@ -297,6 +299,7 @@ export class AuthService {
         lastName: user.lastName,
         firstName: user.firstName,
         password: user.password,
+        role: user.role as AllowedRoles,
       };
 
       await this.mailService.sendConfirmationEmail(

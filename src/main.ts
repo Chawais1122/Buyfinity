@@ -8,6 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { csrfMiddleware } from './auth/middleware/csrf.middleware';
+import Redis from 'ioredis';
+import RedisStore from 'connect-redis';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -44,9 +46,17 @@ async function bootstrap() {
   });
   app.use(limiter);
 
+  // Set up Redis client
+  const redisClient = new Redis({
+    host: configService.get<string>('REDIS_HOST') || '127.0.0.1',
+    port: configService.get<number>('REDIS_PORT') || 6379,
+    password: configService.get<string>('REDIS_PASSWORD') || undefined,
+  });
+
   // Middleware for session management
   app.use(
     session({
+      store: new RedisStore({ client: redisClient }),
       secret: configService.get<string>('SESSION_SECRET'),
       resave: false,
       saveUninitialized: true,

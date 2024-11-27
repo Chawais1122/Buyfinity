@@ -9,6 +9,7 @@ generator client {
 
 enum Role {
   BUYER
+  SELLER
   ADMIN
 }
 
@@ -18,11 +19,25 @@ model User {
   password  String
   firstName String
   lastName  String
-  address   Address?
   role      Role     @default(BUYER)
   data      Json?
+  address   Address?
+  store     Store?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Store {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  user              User     @relation(fields: [userId], references: [id])
+  userId            String   @unique @db.ObjectId
+  is_verified       Boolean  @default(false)
+  store_name        String
+  store_description String
+  address           Address?
+  rating            Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 type Address {

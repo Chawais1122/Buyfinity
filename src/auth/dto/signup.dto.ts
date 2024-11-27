@@ -6,9 +6,10 @@ import {
   IsOptional,
   IsNotEmpty,
   ValidateNested,
+  IsEnum,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { AUTH_CONSTANTS } from 'src/common/constant';
+import { AllowedRoles, AUTH_CONSTANTS } from 'src/common/constant';
 import { AUTH_MESSAGES } from 'src/common/errors';
 
 class AddressDto {
@@ -59,4 +60,8 @@ export class SignUpDto {
   @ValidateNested({ each: true })
   @Type(() => AddressDto)
   address?: AddressDto;
+
+  @IsNotEmpty()
+  @IsEnum(AllowedRoles)
+  role: AllowedRoles;
 }
